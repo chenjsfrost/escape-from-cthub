@@ -42,6 +42,8 @@ export type AppState = {
   /** 'gps' or a place id. */
   from: string
   routes: Route[]
+  /** Route id pinned to the main card; absent means "show the fastest". */
+  primary?: string
 }
 
 /** Live bus arrival, as epoch ms. */

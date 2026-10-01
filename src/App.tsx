@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { fetchArrivals, fetchWeather } from './lib/api'
 import { loadBusData, stopsNear, type BusData } from './lib/busData'
 import { deriveConditions } from './lib/conditions'
 import { useGeolocation, useNow, usePolled } from './lib/hooks'
-import { plan } from './lib/plan'
+import { plan, tipsFor } from './lib/plan'
 import { useAppState } from './lib/store'
 import type { AppState, StopArrivals } from './lib/types'
 import { ConditionsStrip } from './components/Conditions'
@@ -63,6 +63,18 @@ function Home({ state, setState, bus }: { state: AppState; setState: (s: AppStat
   // Arrivals older than 3 minutes are too stale to trust for a "leave now" call.
   const freshArrivals = arrivals.at && now - arrivals.at < 3 * 60_000 ? arrivals.data ?? {} : {}
   const p = plan({ now, routes: state.routes, origin, bus, arrivals: freshArrivals, conditions })
+  // A pinned route that was since deleted falls back to "fastest".
+  const primary = state.routes.some((r) => r.id === state.primary) ? state.primary : undefined
+  const shown = (primary && p.options.find((o) => o.route.id === primary)) || p.best
+  const inSavedOrder = state.routes.flatMap((r) => p.options.filter((o) => o.route.id === r.id))
+  const verdictRef = useRef<HTMLDivElement>(null)
+  const select = (id?: string) => setState({ ...state, primary: id })
+  const selectFromList = (id: string) => {
+    select(id)
+    // On a phone the card is above the list; bring it back into view.
+    const el = verdictRef.current
+    if (el && el.getBoundingClientRect().top < 0) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
   const lastUpdate = arrivals.at ?? weather.at
 
   return (
@@ -90,8 +102,11 @@ function Home({ state, setState, bus }: { state: AppState; setState: (s: AppStat
 
       <main className="stack-lg">
         <ConditionsStrip c={conditions} unavailable={!!weather.error && !weather.data} />
-        <Verdict best={p.best} now={now} tips={p.tips} loading={arrivals.loading && !arrivals.data} />
-        <OtherWays options={p.others} />
+        <div ref={verdictRef} className="verdict-slot">
+          <Verdict shown={shown} best={p.best} options={inSavedOrder} primary={primary} onSelect={select}
+            now={now} tips={tipsFor(conditions, shown)} loading={arrivals.loading && !arrivals.data} />
+        </div>
+        <OtherWays options={p.options} best={p.best} shownId={shown?.route.id} onSelect={selectFromList} />
         <NearbyBuses stops={nearby} arrivals={arrivals.data ?? {}} now={now} open={nearbyOpen} onToggle={setNearbyOpen} />
       </main>
 

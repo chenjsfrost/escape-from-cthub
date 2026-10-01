@@ -25,7 +25,8 @@ export type Option = {
 
 export type Tip = { kind: 'rain' | 'thunder' | 'haze' | 'heat' | 'clear'; text: string; tone: 'warn' | 'info' | 'good' }
 
-export type Plan = { best?: Option; others: Option[]; tips: Tip[] }
+/** `options` holds every route, fastest first; `best` is the first one with live data. */
+export type Plan = { best?: Option; options: Option[] }
 
 export type PlanInput = {
   now: number
@@ -118,12 +119,12 @@ function optionFor(route: Route, input: PlanInput, penalty: number): Option {
   }
 }
 
-export function tipsFor(c: Conditions | undefined, best: Option | undefined): Tip[] {
+export function tipsFor(c: Conditions | undefined, shown: Option | undefined): Tip[] {
   if (!c) return []
   const tips: Tip[] = []
-  const walking = (best?.outdoorMin ?? 0) > 0
+  const walking = (shown?.outdoorMin ?? 0) > 0
   if (c.rainNow === 'heavy') {
-    tips.push({ kind: 'rain', tone: 'warn', text: best?.route.kind === 'taxi' ? 'Pouring right now, so a taxi wins.' : 'Pouring right now. Wait about 15 min for it to ease, or grab a taxi.' })
+    tips.push({ kind: 'rain', tone: 'warn', text: shown?.route.kind === 'taxi' ? 'Pouring right now, so a taxi wins.' : 'Pouring right now. Wait about 15 min for it to ease, or grab a taxi.' })
   } else if (c.rainNow === 'light') {
     tips.push({ kind: 'rain', tone: 'warn', text: walking ? 'Light rain out there. Bring the brolly.' : 'Light rain out there.' })
   } else if (c.rainSoon) {
@@ -142,5 +143,5 @@ export function plan(input: PlanInput): Plan {
   const rank = { ok: 0, loading: 1, 'no-bus': 2 }
   options.sort((a, b) => rank[a.status] - rank[b.status] || a.score - b.score)
   const best = options[0]?.status === 'ok' ? options[0] : undefined
-  return { best, others: best ? options.slice(1) : options, tips: tipsFor(input.conditions, best) }
+  return { best, options }
 }

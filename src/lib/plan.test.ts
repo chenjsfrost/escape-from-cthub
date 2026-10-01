@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { indexBusData, estimateRideMin, stopsAfter } from './busData'
-import { plan, mrtWaitMin, taxiPickupMin } from './plan'
+import { plan, mrtWaitMin, taxiPickupMin, tipsFor } from './plan'
 import type { BusRoute, Conditions, MrtRoute, TaxiRoute } from './types'
 
 const MIN = 60_000
@@ -57,7 +57,7 @@ describe('plan', () => {
   it('ranks the soonest home first in fine weather', () => {
     const p = plan({ now: NOW, routes: [mrt, busRoute, taxi], origin, bus, arrivals: { A: { '145': [{ at: NOW + 20 * MIN, load: 'SEA' }] } }, conditions: dry })
     expect(p.best?.route.kind).toBe('taxi') // 3 + 15 = 18 min
-    expect(p.others.map((o) => o.route.kind)).toEqual(['bus', 'mrt']) // 31 vs 34 min
+    expect(p.options.map((o) => o.route.kind)).toEqual(['taxi', 'bus', 'mrt']) // 31 vs 34 min
   })
 
   it('pushes walking-heavy options down when it pours', () => {
@@ -66,23 +66,23 @@ describe('plan', () => {
     expect(fine.best?.route.kind).toBe('bus') // 14 min vs 24 min; in heavy rain the 6 min walk costs +12
     const wet = plan({ now: NOW, routes: [busRoute, { ...taxi, rideMin: 12 }], origin, bus, arrivals, conditions: { ...dry, taxisNearby: 0, rainNow: 'heavy' } })
     expect(wet.best?.route.kind).toBe('taxi')
-    expect(wet.tips[0].kind).toBe('rain')
+    expect(tipsFor({ ...dry, rainNow: 'heavy' }, wet.best)[0].text).toMatch(/taxi wins/)
   })
 
   it('keeps routes without live data out of the verdict', () => {
     const p = plan({ now: NOW, routes: [busRoute], origin, bus, arrivals: { A: { '145': [] } } })
     expect(p.best).toBeUndefined()
-    expect(p.others[0].status).toBe('no-bus')
+    expect(p.options[0].status).toBe('no-bus')
     const loading = plan({ now: NOW, routes: [busRoute], origin, bus, arrivals: {} })
-    expect(loading.others[0].status).toBe('loading')
+    expect(loading.options[0].status).toBe('loading')
   })
 
   it('says the coast is clear when nothing is wrong', () => {
-    expect(plan({ now: NOW, routes: [taxi], arrivals: {}, conditions: dry }).tips).toEqual([expect.objectContaining({ kind: 'clear' })])
+    expect(tipsFor(dry, undefined)).toEqual([expect.objectContaining({ kind: 'clear' })])
   })
 
   it('does not claim clear skies without rain data', () => {
-    expect(plan({ now: NOW, routes: [taxi], arrivals: {}, conditions: { ...dry, rainKnown: false } }).tips).toEqual([])
+    expect(tipsFor({ ...dry, rainKnown: false }, undefined)).toEqual([])
   })
 })
 

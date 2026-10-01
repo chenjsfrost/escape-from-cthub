@@ -32,6 +32,7 @@ All logic lives in `src/lib/`; `src/components/` is presentation only. `src/App.
 4. `usePolled()` (`lib/hooks.ts`) polls bus arrivals (30s, for every bus route's board stop plus nearby stops) and weather (5 min). It pauses while the tab is hidden, refetches on visibility/online, and caches the last good response in localStorage (`efc:cache:<key>`) so a flaky connection still shows data.
 5. `deriveConditions()` (`lib/conditions.ts`) reduces the raw data.gov.sg readings to `Conditions` for the origin by picking the nearest station/area/region.
 6. `plan()` (`lib/plan.ts`) is a pure function: `PlanInput` (now, routes, origin, bus data, arrivals, conditions) → `{ best, others, tips }`. Arrivals older than 3 minutes are dropped before planning.
+7. The main card (`Verdict`) shows `state.primary` (a pinned route id) or, when unset or deleted, `plan().best`. Its switcher lists routes in saved order so buttons stay put; "Other ways out" lists every option in ranked order, and tapping one pins it.
 
 **Planning model (`lib/plan.ts`):** each route becomes an `Option` with a `homeBy` time and a `score` = `homeBy` + outdoor walking minutes × a weather `exposurePenalty`. Options sort by status (`ok` < `loading` < `no-bus`) then score. Bus options need a catchable live arrival (arrives no sooner than the walk, with 30s grace; `hustle` flags tight ones). MRT wait comes from SGT time-of-day headways (`mrtWaitMin`); taxi wait from nearby taxi count (`taxiPickupMin`). Bus ride time uses the user's override or `estimateRideMin` (stop-to-stop distance at ~19 km/h).
 
